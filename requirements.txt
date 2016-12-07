@@ -7,7 +7,18 @@
 click==6.6
 elasticsearch-dsl==2.2.0
 elasticsearch==2.4.0      # via elasticsearch-dsl
+html5lib==0.999999999     # via rdflib
+isodate==0.5.4            # via rdflib
+pyparsing==2.1.10         # via rdflib
 python-dateutil==2.6.0    # via elasticsearch-dsl
-six==1.10.0               # via elasticsearch-dsl, python-dateutil
+rdflib-jsonld==0.4.0
+rdflib==4.2.1
+requests==2.12.3
+six==1.10.0               # via elasticsearch-dsl, html5lib, python-dateutil
+SPARQLWrapper==1.8.0      # via rdflib
 stomp.py==4.1.15
 urllib3==1.19.1           # via elasticsearch
+webencodings==0.5         # via html5lib
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools                # via html5lib

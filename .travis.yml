@@ -1,0 +1,8 @@
+notifications:
+  email: false
+language: python
+env:
+  - TOX_ENV=py35
+  - TOX_ENV=coveralls
+install: pip install tox
+script: tox -e $TOX_ENV
