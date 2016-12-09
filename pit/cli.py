@@ -1,3 +1,5 @@
+import logging
+import logging.config
 import signal
 
 import click
@@ -6,11 +8,12 @@ from rdflib import Graph
 import stomp
 
 from pit.index import Thesis, indexable, ThesisResource
+from pit.logging import BASE_CONFIG
 
 
 @click.group()
 def main():
-    pass
+    logging.config.dictConfig(BASE_CONFIG)
 
 
 @main.command()
@@ -23,13 +26,17 @@ def main():
 @click.option('--queue', default='/queue/fedora')
 def run(broker_host, broker_port, index_host, index_port, repo_host,
         repo_port, queue):
+    logger = logging.getLogger(__name__)
     es_conn = "{}:{}".format(index_host, index_port)
     connections.create_connection(hosts=[es_conn], timeout=20)
+    logger.debug('Connected to Elasticsearch on {}'.format(es_conn))
     Thesis.init()
     conn = stomp.Connection([(broker_host, broker_port)])
     conn.set_listener('indexer', FedoraListener())
     conn.start()
     conn.connect(wait=True)
+    logger.debug('Connected to ActiveMQ on {}:{}'.format(broker_host,
+                                                         broker_port))
     conn.subscribe(queue, 1)
     while True:
         signal.pause()
@@ -38,6 +45,8 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
 class FedoraListener(stomp.ConnectionListener):
     def on_message(self, headers, message):
         if indexable(headers):
+            logger.debug('Processing message {}'\
+                .format(headers['message-id']))
             handle_message(message)
 
 
@@ -53,3 +62,4 @@ def handle_message(message):
         abstract=t.abstract,
         full_text=t.full_text
     ).save()
+    logger.info('Indexed {}'.format(t.uri))
