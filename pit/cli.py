@@ -44,6 +44,8 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
 
 class FedoraListener(stomp.ConnectionListener):
     def on_message(self, headers, message):
+        logger = logging.getLogger(__name__)
+        logger.debug('Message arrived: {}'.format(headers))
         if indexable(headers):
             logger.debug('Processing message {}'\
                 .format(headers['message-id']))
@@ -51,7 +53,8 @@ class FedoraListener(stomp.ConnectionListener):
 
 
 def handle_message(message):
-    t = ThesisResource(Graph().parse(data=message, format='ld-json'))
+    logger = logging.getLogger(__name__)
+    t = ThesisResource(Graph().parse(data=message, format='json-ld'))
     Thesis(
         title=t.title,
         department=t.department,
@@ -62,4 +65,4 @@ def handle_message(message):
         abstract=t.abstract,
         full_text=t.full_text
     ).save()
-    logger.info('Indexed {}'.format(t.uri))
+    logger.info('Indexed {}'.format(t.resource.uri))
