@@ -1,6 +1,7 @@
 import logging
 import logging.config
 import signal
+import sys
 
 import click
 from elasticsearch_dsl.connections import connections
@@ -38,6 +39,14 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
     logger.debug('Connected to ActiveMQ on {}:{}'.format(broker_host,
                                                          broker_port))
     conn.subscribe(queue, 1)
+
+    def shutdown(signum, stack):
+        conn.disconnect()
+        logger.debug('Disconnected from ActiveMQ')
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, shutdown)
+
     while True:
         signal.pause()
 
@@ -45,7 +54,6 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
 class FedoraListener(stomp.ConnectionListener):
     def on_message(self, headers, message):
         logger = logging.getLogger(__name__)
-        logger.debug('Message arrived: {}'.format(headers))
         if indexable(headers):
             logger.debug('Processing message {}'\
                 .format(headers['message-id']))
