@@ -64,6 +64,7 @@ def handle_message(message):
     logger = logging.getLogger(__name__)
     t = ThesisResource(Graph().parse(data=message, format='json-ld'))
     Thesis(
+        uri=t.uri,
         title=t.title,
         department=t.department,
         reviewer=t.reviewer,
