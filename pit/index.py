@@ -11,6 +11,7 @@ class Thesis(DocType):
     department = String(index='not_analyzed')
     reviewer = String(index='not_analyzed')
     author = String(index='not_analyzed')
+    uri = String(index='not_analyzed')
     issue_date = Integer()
     copyright_date = Integer()
     abstract = String()
@@ -77,6 +78,10 @@ class PcdmObject(object):
 class ThesisResource(object):
     def __init__(self, graph):
         self.resource = PcdmObject(graph)
+
+    @property
+    def uri(self):
+        return str(self.resource.uri)
 
     @property
     def title(self):

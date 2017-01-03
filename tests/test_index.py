@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from rdflib import Graph, URIRef, Literal
 
-from pit.index import PcdmObject, indexable
+from pit.index import PcdmObject, indexable, ThesisResource, Thesis
 from pit.namespaces import *
 
 
@@ -58,3 +58,8 @@ def test_indexable_returns_true_for_indexable_events():
 def test_indexable_returns_false_for_nonindexable_events():
     assert not indexable({
         'org.fcrepo.jms.resourceType': 'http://pcdm.org/models#File'})
+
+
+def test_thesis_resource_has_uri(graph, resolve):
+    t = ThesisResource(graph)
+    assert t.uri == 'http://example.com/foo'
