@@ -3,18 +3,21 @@ from elasticsearch_dsl import DocType, String, Integer
 import rdflib
 import requests
 
-from pit.namespaces import EBU, F4EV, MSL, PCDM, DCTERMS, RDF
+from pit.namespaces import BIBO, EBU, F4EV, MODS, MSL, PCDM, DCTERMS, RDF, RDA
 
 
 class Thesis(DocType):
-    title = String()
-    department = String(index='not_analyzed')
-    reviewer = String(index='not_analyzed')
-    author = String(index='not_analyzed')
-    uri = String(index='not_analyzed')
-    issue_date = Integer()
-    copyright_date = Integer()
     abstract = String()
+    advisor = String(index='not_analyzed')
+    author = String(index='not_analyzed')
+    copyright_date = Integer()
+    degree = String(index='not_analyzed')
+    department = String(index='not_analyzed')
+    description = String()
+    handle = String(index='not_analyzed')
+    published_date = Integer()
+    title = String()
+    uri = String(index='not_analyzed')
     full_text = String()
 
     class Meta:
@@ -84,32 +87,44 @@ class ThesisResource(object):
         return str(self.resource.uri)
 
     @property
-    def title(self):
-        return self._get(DCTERMS.title)
+    def abstract(self):
+        return self._get(DCTERMS.abstract)
 
     @property
-    def department(self):
-        return self._get(MSL.associatedDepartment)
-
-    @property
-    def reviewer(self):
-        return self._get(MSL.reviewedBy)
+    def advisor(self):
+        return self._get(RDA['60420'])
 
     @property
     def author(self):
         return self._get(DCTERMS.creator)
 
     @property
-    def issue_date(self):
-        return self._get(DCTERMS.dateIssued)
-
-    @property
     def copyright_date(self):
         return self._get(DCTERMS.dateCopyrighted)
 
     @property
-    def abstract(self):
-        return self._get(DCTERMS.abstract)
+    def degree(self):
+        return self._get(MSL.degreeGrantedForCompletion)
+
+    @property
+    def department(self):
+        return self._get(MSL.associatedDepartment)
+
+    @property
+    def description(self):
+        return self._get(MODS.note)
+
+    @property
+    def handle(self):
+        return self._get(BIBO.handle)
+
+    @property
+    def published_date(self):
+        return self._get(DCTERMS.issued)
+
+    @property
+    def title(self):
+        return self._get(DCTERMS.title)
 
     @property
     def full_text(self):
@@ -118,7 +133,5 @@ class ThesisResource(object):
                 return f.read()
 
     def _get(self, prop):
-        return self.resource.g.value(subject=self.resource.uri,
-                                     predicate=prop,
-                                     object=None,
-                                     any=False)
+        return list(map(str, self.resource.g.objects(subject=self.resource.uri,
+                                                     predicate=prop)))
