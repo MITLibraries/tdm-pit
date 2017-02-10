@@ -2,7 +2,8 @@ import pytest
 from rdflib import Graph, URIRef, Literal
 import requests_mock
 
-from pit.index import PcdmObject, indexable, ThesisResource
+from pit.index import (create_thesis, DocumentIndexer, documents, indexable,
+                       PcdmObject, ThesisResource, uri_from_message)
 from pit.namespaces import *
 
 
@@ -13,24 +14,35 @@ def n3():
     return n3
 
 
-@pytest.yield_fixture(autouse=True)
-def fedora(n3):
-    with requests_mock.Mocker() as m:
-        m.get('mock://example.com/1/fcr:metadata', text=n3)
-        yield
-
-
 @pytest.fixture
-def graph():
-    g = Graph()
-    g.add((URIRef('mock://example.com/1'), RDF.type, PCDM.Object))
+def graph(n3):
+    g = Graph().parse(data=n3, format='n3')
     return g
 
 
-def test_pcdm_object_loads_remote_graph(graph):
-    o = PcdmObject(graph)
-    assert (URIRef('mock://example.com/1'), DCTERMS.title,
-            Literal("Title 1")) in o.g
+def test_uri_from_message_returns_uri():
+    msg = ('{"@id": "mock://example.com/1", "@type": ['
+          '"http://pcdm.org/models#Object"]}')
+    assert uri_from_message(msg) == 'mock://example.com/1'
+
+
+def test_create_thesis_loads_data_remotely(n3):
+    with requests_mock.Mocker() as m:
+        m.get('mock://example.com/1/fcr:metadata', text=n3)
+        t = create_thesis('mock://example.com/1')
+        assert t.abstract == ['This is an abstract']
+
+
+def test_documents_generates_list_pcdm_members():
+    coll = """
+        @prefix pcdm: <http://pcdm.org/models#> .
+        <mock://example.com/> pcdm:hasMember <mock://example.com/1> ,
+                                             <mock://example.com/2> .
+    """
+    with requests_mock.Mocker() as m:
+        m.get('mock://example.com/', text=coll)
+        assert sorted(documents('mock://example.com/')) == \
+                ['mock://example.com/1', 'mock://example.com/2']
 
 
 def test_pcdm_object_has_uri(graph):
@@ -57,18 +69,13 @@ def test_indexable_returns_false_for_nonindexable_events():
         'org.fcrepo.jms.resourceType': 'http://pcdm.org/models#File'})
 
 
-def test_thesis_properties_return_mutliple():
-    s = URIRef('mock://example.com/1')
-    g = Graph()
-    g.add((s, RDF.type, PCDM.Object))
-    t = ThesisResource(g)
+def test_thesis_properties_return_mutliple(graph):
+    t = ThesisResource(graph)
     assert all([m in t.title for m in ['Title 1', 'Title 2']])
 
 
-def test_thesis_resource_returns_properties():
-    g = Graph()
-    g.add((URIRef('mock://example.com/1'), RDF.type, PCDM.Object))
-    t = ThesisResource(g)
+def test_thesis_resource_returns_properties(graph):
+    t = ThesisResource(graph)
     assert 'This is an abstract' in t.abstract
     assert 'Baz, Foo' in t.advisor
     assert 'Bar' in t.author

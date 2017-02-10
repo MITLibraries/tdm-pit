@@ -1,7 +1,10 @@
-from elasticsearch_dsl import DocType, String, Integer
+from datetime import datetime
+import logging
 
+from elasticsearch_dsl import DocType, String, Integer, Index as _Index
 import rdflib
 import requests
+import stomp
 
 from pit.namespaces import BIBO, EBU, F4EV, MODS, MSL, PCDM, DCTERMS, RDF, RDA
 
@@ -20,9 +23,6 @@ class Thesis(DocType):
     uri = String(index='not_analyzed')
     full_text = String()
 
-    class Meta:
-        index = 'theses'
-
 
 def indexable(headers):
     return str(PCDM.Object) in headers['org.fcrepo.jms.resourceType'] and \
@@ -37,6 +37,59 @@ def resolve(uri):
     }
     r = requests.get('{}/fcr:metadata'.format(uri), headers=headers)
     return r.text
+
+
+def uri_from_message(data, msg_format='json-ld'):
+    g = rdflib.Graph().parse(data=data, format=msg_format)
+    uri = g.value(subject=None, predicate=RDF.type, object=PCDM.Object,
+                  any=False)
+    return str(uri)
+
+
+def create_thesis(url):
+    data = resolve(url)
+    graph = rdflib.Graph().parse(data=data, format='n3')
+    t = ThesisResource(graph)
+    return Thesis(
+        abstract=t.abstract,
+        advisor=t.advisor,
+        author=t.author,
+        copyright_date=t.copyright_date,
+        degree=t.degree,
+        department=t.department,
+        description=t.description,
+        handle=t.handle,
+        published_date=t.published_date,
+        title=t.title,
+        uri=t.uri,
+        full_text=t.full_text
+    )
+
+
+def documents(url):
+    r = requests.get(url, headers={'Accept': 'text/n3'})
+    r.raise_for_status()
+    graph = rdflib.Graph().parse(data=r.text, format='n3')
+    for doc in graph.objects(rdflib.URIRef(url), PCDM.hasMember):
+        yield str(doc)
+
+
+class DocumentIndexer(stomp.ConnectionListener):
+    def __init__(self, index):
+        self.index = index
+
+    def on_message(self, headers, message):
+        logger = logging.getLogger(__name__)
+        if indexable(headers):
+            logger.debug('Processing message {}'.format(headers['message-id']))
+            uri = uri_from_message(message)
+            try:
+                thesis = create_thesis(uri)
+                thesis.save(index=self.index)
+                logger.info('Indexed {}'.format(uri))
+            except Exception as e:
+                logger.warn('Error while indexing document {}: {}'\
+                    .format(url, e))
 
 
 class PcdmFile(object):
@@ -61,7 +114,6 @@ class PcdmFile(object):
 class PcdmObject(object):
     def __init__(self, graph):
         self.g = graph
-        self.g.parse(data=resolve(self.uri), format='n3')
 
     @property
     def uri(self):
@@ -135,3 +187,46 @@ class ThesisResource(object):
     def _get(self, prop):
         return list(map(str, self.resource.g.objects(subject=self.resource.uri,
                                                      predicate=prop)))
+
+
+class Index:
+    def __init__(self, name, doc_type):
+        self.name = name
+        self.idx = _Index(name)
+        self.idx.doc_type(doc_type)
+
+    def initialize(self):
+        if not self.idx.connection.indices.exists_alias(name=self.name):
+            version = self.new_version()
+            self.current = version
+
+    def new_version(self):
+        version = "{}-{}".format(self.name, datetime.utcnow().timestamp())
+        self.idx.connection.indices.create(index=version,
+                                           body=self.idx.to_dict())
+        return version
+
+    @property
+    def versions(self):
+        if self.idx.connection.indices.exists_alias(name=self.name):
+            indices = self.idx.connection.indices.get_alias(name=self.name)
+            return list(indices.keys())
+        return []
+
+    @property
+    def current(self):
+        if self.versions:
+            return self.versions[0]
+
+    @current.setter
+    def current(self, value):
+        body = {"actions": []}
+        versions = self.versions
+        for idx in versions:
+            body['actions'].append(
+                {"remove": {"index": idx, "alias": self.name}})
+        body['actions'].append(
+            {"add": {"index": value, "alias": self.name}})
+        self.idx.connection.indices.update_aliases(body)
+        if versions:
+            self.idx.connection.indices.delete(index=",".join(versions))

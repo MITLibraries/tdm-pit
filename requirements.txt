@@ -11,8 +11,8 @@ isodate==0.5.4            # via rdflib
 pyparsing==2.1.10         # via rdflib
 python-dateutil==2.6.0    # via elasticsearch-dsl
 rdflib-jsonld==0.4.0
-rdflib==4.2.1
-requests==2.12.5
+rdflib==4.2.2
+requests==2.13.0
 six==1.10.0               # via elasticsearch-dsl, python-dateutil
-stomp.py==4.1.15
+stomp.py==4.1.17
 urllib3==1.20             # via elasticsearch

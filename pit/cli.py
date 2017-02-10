@@ -5,10 +5,9 @@ import sys
 
 import click
 from elasticsearch_dsl.connections import connections
-from rdflib import Graph
 import stomp
 
-from pit.index import Thesis, indexable, ThesisResource
+from pit.index import create_thesis, DocumentIndexer, documents, Thesis, Index
 from pit.logging import BASE_CONFIG
 
 
@@ -31,9 +30,10 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
     es_conn = "{}:{}".format(index_host, index_port)
     connections.create_connection(hosts=[es_conn], timeout=20)
     logger.debug('Connected to Elasticsearch on {}'.format(es_conn))
-    Thesis.init()
+    idx = Index('theses', Thesis)
+    idx.initialize()
     conn = stomp.Connection([(broker_host, broker_port)])
-    conn.set_listener('indexer', FedoraListener())
+    conn.set_listener('indexer', DocumentIndexer('theses'))
     conn.start()
     conn.connect(wait=True)
     logger.debug('Connected to ActiveMQ on {}:{}'.format(broker_host,
@@ -51,29 +51,24 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
         signal.pause()
 
 
-class FedoraListener(stomp.ConnectionListener):
-    def on_message(self, headers, message):
-        logger = logging.getLogger(__name__)
-        if indexable(headers):
-            logger.debug('Processing message {}'.format(headers['message-id']))
-            handle_message(message)
-
-
-def handle_message(message):
+@main.command()
+@click.argument('collection')
+@click.option('--index-host', default='localhost')
+@click.option('--index-port', default=9200)
+@click.option('--index-name', default='theses')
+def reindex(collection, index_host, index_port, index_name):
     logger = logging.getLogger(__name__)
-    t = ThesisResource(Graph().parse(data=message, format='json-ld'))
-    Thesis(
-        abstract=t.abstract,
-        advisor=t.advisor,
-        author=t.author,
-        copyright_date=t.copyright_date,
-        degree=t.degree,
-        department=t.department,
-        description=t.description,
-        handle=t.handle,
-        published_date=t.published_date,
-        title=t.title,
-        uri=t.uri,
-        full_text=t.full_text
-    ).save()
-    logger.info('Indexed {}'.format(t.uri))
+    es_conn = '{}:{}'.format(index_host, index_port)
+    connections.create_connection(hosts=[es_conn], timeout=20)
+    idx = Index(index_name, Thesis)
+    idx.initialize()
+    new = idx.new_version()
+    for url in documents(collection):
+        try:
+            thesis = create_thesis(url)
+            thesis.save(index=new)
+            logger.info('Indexed document: {}'.format(url))
+        except Exception as e:
+            logger.warn('Error while indexing document {}: {}'.format(url, e))
+    idx.current = new
+    logger.info('Finished reindexing collection')
