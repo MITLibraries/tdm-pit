@@ -7,7 +7,15 @@ import click
 from elasticsearch_dsl.connections import connections
 import stomp
 
-from pit.index import create_thesis, DocumentIndexer, documents, Thesis, Index
+from pit.index import (
+    create_thesis,
+    delete_from_index,
+    delete_from_repo,
+    DocumentIndexer,
+    documents,
+    Index,
+    Thesis,
+)
 from pit.logging import BASE_CONFIG
 
 
@@ -72,3 +80,29 @@ def reindex(collection, index_host, index_port, index_name):
             logger.warn('Error while indexing document {}: {}'.format(url, e))
     idx.current = new
     logger.info('Finished reindexing collection')
+
+
+@main.command()
+@click.argument('thesis')
+@click.option('--index-host', default='localhost')
+@click.option('--index-port', default=9200)
+@click.option('--index-name', default='theses')
+@click.option('--fedora-url', default='http://localhost/fcrepo/rest/')
+def remove(thesis, index_host, index_port, index_name, fedora_url):
+    logger = logging.getLogger(__name__)
+    es_conn = '{}:{}'.format(index_host, index_port)
+    connections.create_connection(hosts=[es_conn], timeout=20)
+    hdl = 'http://hdl.handle.net/' + thesis
+    repo_uri = fedora_url + thesis
+    try:
+        delete_from_index(hdl)
+        logger.info('Deleted {} from elasticsearch'.format(thesis))
+    except Exception as e:
+        logger.warn('Could not delete document from index: {}'.format(e))
+        sys.exit(0)
+    try:
+        delete_from_repo(repo_uri)
+        logger.info('Deleted {} from fedora'.format(repo_uri))
+    except Exception as e:
+        logger.warn('Could not delete document from fedora: {}'.format(e))
+        sys.exit(0)
