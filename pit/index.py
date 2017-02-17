@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 
 from elasticsearch_dsl import DocType, String, Integer, Index as _Index
+from elasticsearch_dsl.connections import connections
 import rdflib
 import requests
 import stomp
@@ -74,6 +75,24 @@ def documents(url):
         yield str(doc)
 
 
+def delete_from_index(handle, index):
+    conn = connections.get_connection()
+    res = conn.search(index, 'thesis', {'query': {'term': {'handle': handle}}})
+    doc_id = res['hits']['hits'][0]['_id']
+    conn.delete(index, 'thesis', doc_id)
+
+
+def delete_from_repo(uri):
+    data = resolve(uri)
+    graph = rdflib.Graph().parse(data=data, format='n3')
+    pcdm_obj = PcdmObject(graph)
+    for f in pcdm_obj.files:
+        r = requests.delete(f.uri)
+        r.raise_for_status()
+    r = requests.delete(uri)
+    r.raise_for_status()
+
+
 class DocumentIndexer(stomp.ConnectionListener):
     def __init__(self, index):
         self.index = index
@@ -88,8 +107,8 @@ class DocumentIndexer(stomp.ConnectionListener):
                 thesis.save(index=self.index)
                 logger.info('Indexed {}'.format(uri))
             except Exception as e:
-                logger.warn('Error while indexing document {}: {}'\
-                    .format(url, e))
+                logger.warn('Error while indexing document {}: {}'
+                            .format(uri, e))
 
 
 class PcdmFile(object):

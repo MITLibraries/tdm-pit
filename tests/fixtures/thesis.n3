@@ -16,6 +16,6 @@
                        bibo:handle <http://handle.org/1> ;
                        mods:note "This is a thesis" ;
                        pcdm:hasFile <mock://example.com/bar> ,
-                                    <mock:example.com/baz> .
+                                    <mock://example.com/baz> .
 <mock://example.com/bar> a pcdm:File .
 <mock://example.com/baz> a pcdm:File .
