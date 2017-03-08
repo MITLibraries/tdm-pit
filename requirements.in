@@ -1,6 +1,5 @@
+aioes
 click
-elasticsearch_dsl>=2.0.0,<3.0.0
-requests
-stomp.py
 rdflib
 rdflib-jsonld
+stompest
