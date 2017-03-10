@@ -36,7 +36,7 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
     loop.run_until_complete(idx.initialize())
     logger.debug('Connected to Elasticsearch on {}'.format(es_conn))
 
-    stomp = Protocol('localhost', 61613, loop)
+    stomp = Protocol(broker_host, broker_port, loop)
     try:
         loop.run_until_complete(
             asyncio.wait_for(stomp.connect(), timeout=5, loop=loop))
