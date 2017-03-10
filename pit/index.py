@@ -1,28 +1,9 @@
-from datetime import datetime
 import logging
 
-from elasticsearch_dsl import DocType, String, Integer, Index as _Index
-from elasticsearch_dsl.connections import connections
+import aiohttp
 import rdflib
-import requests
-import stomp
 
 from pit.namespaces import BIBO, EBU, F4EV, MODS, MSL, PCDM, DCTERMS, RDF, RDA
-
-
-class Thesis(DocType):
-    abstract = String()
-    advisor = String(index='not_analyzed')
-    author = String(index='not_analyzed')
-    copyright_date = Integer()
-    degree = String(index='not_analyzed')
-    department = String(index='not_analyzed')
-    description = String()
-    handle = String(index='not_analyzed')
-    published_date = Integer()
-    title = String()
-    uri = String(index='not_analyzed')
-    full_text = String()
 
 
 def indexable(headers):
@@ -30,14 +11,14 @@ def indexable(headers):
         str(F4EV.ResourceModification) in headers['org.fcrepo.jms.eventType']
 
 
-def resolve(uri):
+async def resolve(uri):
     headers = {
         'Accept': 'text/n3',
-        'Prefer': 'include="http://fedora.info/definitions/v4/repository'
-                  '#EmbedResources"'
+        'Prefer': 'representation; include="http://fedora.info/definitions/v4'
+                  '/repository#EmbedResources"'
     }
-    r = requests.get('{}/fcr:metadata'.format(uri), headers=headers)
-    return r.text
+    r = await aiohttp.get('{}/fcr:metadata'.format(uri), headers=headers)
+    return await r.text()
 
 
 def uri_from_message(data, msg_format='json-ld'):
@@ -47,64 +28,41 @@ def uri_from_message(data, msg_format='json-ld'):
     return str(uri)
 
 
-def create_thesis(url):
-    data = resolve(url)
+async def create_thesis(url):
+    data = await resolve(url)
     graph = rdflib.Graph().parse(data=data, format='n3')
     t = ThesisResource(graph)
-    return Thesis(
-        abstract=t.abstract,
-        advisor=t.advisor,
-        author=t.author,
-        copyright_date=t.copyright_date,
-        degree=t.degree,
-        department=t.department,
-        description=t.description,
-        handle=t.handle,
-        published_date=t.published_date,
-        title=t.title,
-        uri=t.uri,
-        full_text=t.full_text
-    )
+    full_text = await t.full_text
+    return {
+        'abstract': t.abstract,
+        'advisor': t.advisor,
+        'author': t.author,
+        'copyright_date': t.copyright_date,
+        'degree': t.degree,
+        'department': t.department,
+        'description': t.description,
+        'handle': t.handle,
+        'published_date': t.published_date,
+        'title': t.title,
+        'uri': t.uri,
+        'full_text': full_text,
+    }
 
 
-def documents(url):
-    r = requests.get(url, headers={'Accept': 'text/n3'})
-    r.raise_for_status()
-    graph = rdflib.Graph().parse(data=r.text, format='n3')
-    for doc in graph.objects(rdflib.URIRef(url), PCDM.hasMember):
-        yield str(doc)
-
-
-def delete_from_index(handle, index):
-    conn = connections.get_connection()
-    res = conn.search(index, 'thesis', {'query': {'term': {'handle': handle}}})
-    doc_id = res['hits']['hits'][0]['_id']
-    conn.delete(index, 'thesis', doc_id)
-
-
-def delete_from_repo(uri):
-    data = resolve(uri)
-    graph = rdflib.Graph().parse(data=data, format='n3')
-    pcdm_obj = PcdmObject(graph)
-    for f in pcdm_obj.files:
-        r = requests.delete(f.uri)
-        r.raise_for_status()
-    r = requests.delete(uri)
-    r.raise_for_status()
-
-
-class DocumentIndexer(stomp.ConnectionListener):
-    def __init__(self, index):
+class Indexer:
+    def __init__(self, index, loop):
         self.index = index
+        self.loop = loop
 
-    def on_message(self, headers, message):
+    async def on_message(self, frame):
         logger = logging.getLogger(__name__)
-        if indexable(headers):
-            logger.debug('Processing message {}'.format(headers['message-id']))
-            uri = uri_from_message(message)
+        if indexable(frame.headers):
+            logger.debug('Processing message {}'
+                         .format(frame.headers['message-id']))
+            uri = uri_from_message(frame.body)
             try:
-                thesis = create_thesis(uri)
-                thesis.save(index=self.index)
+                thesis = await create_thesis(uri)
+                await self.index.add(thesis)
                 logger.info('Indexed {}'.format(uri))
             except Exception as e:
                 logger.warn('Error while indexing document {}: {}'
@@ -125,9 +83,9 @@ class PcdmFile(object):
         return self.g.value(subject=self.uri, predicate=EBU.hasMimeType,
                             object=None, any=False)
 
-    def read(self):
-        r = requests.get(self.uri)
-        return r.text
+    async def read(self):
+        async with aiohttp.get(self.uri) as r:
+            return await r.text()
 
 
 class PcdmObject(object):
@@ -198,54 +156,11 @@ class ThesisResource(object):
         return self._get(DCTERMS.title)
 
     @property
-    def full_text(self):
+    async def full_text(self):
         for f in self.resource.files:
             if f.mimetype == 'text/plain':
-                return f.read()
+                return await f.read()
 
     def _get(self, prop):
         return list(map(str, self.resource.g.objects(subject=self.resource.uri,
                                                      predicate=prop)))
-
-
-class Index:
-    def __init__(self, name, doc_type):
-        self.name = name
-        self.idx = _Index(name)
-        self.idx.doc_type(doc_type)
-
-    def initialize(self):
-        if not self.idx.connection.indices.exists_alias(name=self.name):
-            version = self.new_version()
-            self.current = version
-
-    def new_version(self):
-        version = "{}-{}".format(self.name, datetime.utcnow().timestamp())
-        self.idx.connection.indices.create(index=version,
-                                           body=self.idx.to_dict())
-        return version
-
-    @property
-    def versions(self):
-        if self.idx.connection.indices.exists_alias(name=self.name):
-            indices = self.idx.connection.indices.get_alias(name=self.name)
-            return list(indices.keys())
-        return []
-
-    @property
-    def current(self):
-        if self.versions:
-            return self.versions[0]
-
-    @current.setter
-    def current(self, value):
-        body = {"actions": []}
-        versions = self.versions
-        for idx in versions:
-            body['actions'].append(
-                {"remove": {"index": idx, "alias": self.name}})
-        body['actions'].append(
-            {"add": {"index": value, "alias": self.name}})
-        self.idx.connection.indices.update_aliases(body)
-        if versions:
-            self.idx.connection.indices.delete(index=",".join(versions))
