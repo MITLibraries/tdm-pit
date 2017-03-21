@@ -5,10 +5,10 @@
 #    pip-compile --output-file requirements.txt requirements.in
 #
 click==6.7
-elasticsearch-dsl==2.2.0
-elasticsearch==2.4.1      # via elasticsearch-dsl
+elasticsearch-dsl==5.1.0
+elasticsearch==5.2.0      # via elasticsearch-dsl
 isodate==0.5.4            # via rdflib
-pyparsing==2.1.10         # via rdflib
+pyparsing==2.2.0          # via rdflib
 python-dateutil==2.6.0    # via elasticsearch-dsl
 rdflib-jsonld==0.4.0
 rdflib==4.2.2
