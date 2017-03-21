@@ -58,4 +58,4 @@ class Index:
             await self.conn.indices.delete(index=",".join(versions))
 
     async def add(self, document):
-        await self.conn.create(self.name, 'thesis', document)
+        await self.conn.index(self.name, 'thesis', document, op_type='index')
