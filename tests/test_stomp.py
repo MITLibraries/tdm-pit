@@ -1,4 +1,3 @@
-import asyncio
 from asyncio import coroutine
 from unittest.mock import Mock
 
@@ -107,6 +106,7 @@ class TestProtocol:
         _, tkn = p.session.subscribe('/queue/foo', headers={'id': '1'},
                                      context='FOOBAR')
         assert p.message(StompFrame('MESSAGE', body=b'FOOBAZ',
-            headers={'destination': '/queue/foo',
-                     'subscription': '1', 'message-id': '1'})) == \
+                         headers={'destination': '/queue/foo',
+                                  'subscription': '1',
+                                  'message-id': '1'})) == \
             ('id', '1')

@@ -1,0 +1,5 @@
+@prefix pcdm: <http://pcdm.org/models#> .
+
+<mock://example.com/theses> a pcdm:Collection ;
+  pcdm:hasMember <mock://example.com/theses/1>,
+                 <mock://example.com/theses/2> .
