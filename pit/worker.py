@@ -3,7 +3,6 @@ import logging
 import time
 
 from pit.stomp import BrokenSocketError
-from pit.index import Indexer
 
 
 async def listen(client):
@@ -39,11 +38,11 @@ async def heartbeat(client, period, multiplier=1.0, loop=None):
         await asyncio.sleep(wait)
 
 
-async def run(client, idx, loop):
+async def work(client, callback, loop=None):
+    loop = loop or asyncio.get_event_loop()
     logger = logging.getLogger(__name__)
-    idxer = Indexer(idx, loop)
     try:
-        await client.subscribe('/queue/fedora', idxer.on_message)
+        await client.subscribe('/queue/fedora', callback)
         asyncio.ensure_future(heartbeat(client, 60, 2.5, loop))
         await listen(client)
     except BrokenSocketError:

@@ -8,9 +8,10 @@ from aioes import Elasticsearch
 import click
 
 from pit.es import Index
-from pit.stomp import Protocol
-from pit.worker import run as _run, cleanup
+from pit.index import Indexer
 from pit.logging import BASE_CONFIG
+from pit.stomp import Protocol
+from pit.worker import work, cleanup
 
 
 @click.group()
@@ -47,7 +48,8 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
         logger.error('Exception while connecting to ActiveMQ: {}'.format(e))
         sys.exit(0)
     logger.info('Connected to ActiveMQ')
-    asyncio.ensure_future(_run(stomp, idx, loop))
+    idxer = Indexer(idx, loop)
+    asyncio.ensure_future(work(stomp, idxer.on_message, loop))
     for signame in ('SIGINT', 'SIGTERM'):
         loop.add_signal_handler(getattr(signal, signame), loop.stop)
     try:

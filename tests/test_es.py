@@ -32,7 +32,8 @@ async def test_new_version_creates_new_version():
 async def test_versions_lists_current_versions():
     es = Mock()
     es.indices.exists_alias.side_effect = coroutine(Mock(return_value=True))
-    es.indices.get_alias.side_effect = coroutine(Mock(return_value={'v1': 'foo', 'v2': 'bar'}))
+    es.indices.get_alias.side_effect = \
+        coroutine(Mock(return_value={'v1': 'foo', 'v2': 'bar'}))
     idx = Index(es, 'theses')
     assert 'v1' in await idx.versions
     assert 'v2' in await idx.versions
@@ -61,7 +62,8 @@ async def test_set_current_sets_new_version():
 async def test_set_current_removes_old_versions():
     es = Mock()
     es.indices.exists_alias.side_effect = coroutine(Mock(return_value=True))
-    es.indices.get_alias.side_effect = coroutine(Mock(return_value={'v1': 'foo'}))
+    es.indices.get_alias.side_effect = \
+        coroutine(Mock(return_value={'v1': 'foo'}))
     es.indices.update_aliases.side_effect = coroutine(Mock())
     es.indices.delete.side_effect = coroutine(Mock())
     idx = Index(es, 'theses')
