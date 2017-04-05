@@ -1,5 +1,6 @@
 import rdflib
 
+from pit import rewrite_host
 from pit.namespaces import EBU, PCDM, RDF
 
 
@@ -30,8 +31,9 @@ class PcdmCollection(PcdmBase):
             m = next(self._members)
         except StopIteration:
             raise StopAsyncIteration
-        res = await self.client.get(str(m), headers={'Prefer': PREFER_HEADER,
-                                                     'Accept': 'text/n3'})
+        url = rewrite_host(str(m))
+        res = await self.client.get(url, headers={'Prefer': PREFER_HEADER,
+                                                  'Accept': 'text/n3'})
         data = await res.text()
         graph = rdflib.Graph().parse(data=data, format='n3')
         return PcdmObject(graph, self.client)
@@ -66,4 +68,5 @@ class PcdmFile(PcdmBase):
         return str(m)
 
     async def read(self):
-        return await self.client.request(str(self.uri))
+        url = rewrite_host(str(self.uri))
+        return await self.client.request(url)

@@ -15,6 +15,12 @@ def temp_dir():
         shutil.rmtree(tmp_dir)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def kube_env():
+    os.environ['NGINX_PROXY_SERVICE_HOST'] = 'example.com'
+    os.environ['NGINX_PROXY_SERVICE_PORT'] = ''
+
+
 @pytest.fixture
 def clean_temp(temp_dir):
     for f in os.listdir(temp_dir):

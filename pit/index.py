@@ -3,6 +3,7 @@ import logging
 import aiohttp
 import rdflib
 
+from pit import rewrite_host
 from pit.namespaces import BIBO, F4EV, MODS, MSL, PCDM, DCTERMS, RDF, RDA
 from pit.pcdm import PREFER_HEADER, PcdmObject
 
@@ -21,6 +22,7 @@ def uri_from_message(data, msg_format='json-ld'):
 
 async def create_thesis(url, client=None):
     client = aiohttp.ClientSession()
+    url = rewrite_host(url)
     resp = await client.get(url, headers={'Prefer': PREFER_HEADER,
                                           'Accept': 'text/n3'})
     data = await resp.text()
