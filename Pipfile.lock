@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "9c86dd0b0481e16246b00e23ab8bd9471dcacef000014ca3f19e0f76f3f89776"
+            "sha256": "b41856d9aaf083748e79d101aa372642eead7dafd4538318d86c24069da1781c"
         },
         "requires": {},
         "sources": [
@@ -85,8 +85,8 @@
             "version": "==0.4.0"
         },
         "setuptools": {
-            "hash": "sha256:33a7b7910651bea57164c6c6dd66a2b1c5196c0f78ee2ff7319ce7bd031714c0",
-            "version": "==35.0.1"
+            "hash": "sha256:19d753940f8cdbee7548da318f8b56159aead279ef811a6efc8b8a33d89c86a4",
+            "version": "==35.0.2"
         },
         "six": {
             "hash": "sha256:0ff78c403d9bccf5a425a6d31a12aa6b47f1c21ca4dc2573a7e2f32a97335eb1",
@@ -105,6 +105,10 @@
         "appdirs": {
             "hash": "sha256:d8b24664561d0d34ddfaec54636d502d7cea6e29c3eaf68f3df6180863e2166e",
             "version": "==1.4.3"
+        },
+        "bumpversion": {
+            "hash": "sha256:6753d9ff3552013e2130f7bc03c1007e24473b4835952679653fb132367bdd57",
+            "version": "==0.5.3"
         },
         "coverage": {
             "hash": "sha256:b25aa3531220faaf1727fc29bc000798476b4a30f429dc07898d5da48caefa15",
@@ -147,8 +151,8 @@
             "version": "==2.13.0"
         },
         "setuptools": {
-            "hash": "sha256:33a7b7910651bea57164c6c6dd66a2b1c5196c0f78ee2ff7319ce7bd031714c0",
-            "version": "==35.0.1"
+            "hash": "sha256:19d753940f8cdbee7548da318f8b56159aead279ef811a6efc8b8a33d89c86a4",
+            "version": "==35.0.2"
         },
         "six": {
             "hash": "sha256:0ff78c403d9bccf5a425a6d31a12aa6b47f1c21ca4dc2573a7e2f32a97335eb1",
