@@ -3,29 +3,14 @@ from tests import air_mock
 import pytest
 import rdflib
 
-from pit.pcdm import PcdmCollection, PcdmObject, PcdmFile
+from pit.pcdm import collection, PcdmObject, PcdmFile
 
 
-def test_collection_has_uri(theses):
+def test_collection_yields_objects(theses):
     g = rdflib.Graph().parse(data=theses, format='n3')
-    c = PcdmCollection(g, None)
-    assert c.uri == rdflib.URIRef('mock://example.com/theses')
-
-
-@pytest.mark.asyncio
-async def test_collection_iterates_over_objects(theses, thesis_1, thesis_2):
-    g = rdflib.Graph().parse(data=theses, format='n3')
-    with air_mock.Mock() as m:
-        client = aiohttp.ClientSession()
-        c = PcdmCollection(g, client)
-        m.get('mock://example.com/theses/1', text=thesis_1)
-        m.get('mock://example.com/theses/2', text=thesis_2)
-        uris = []
-        async for o in c:
-            uris.append(str(o.uri))
-        assert len(uris) == 2
-        assert 'mock://example.com/theses/1' in uris
-        assert 'mock://example.com/theses/2' in uris
+    items = list(collection(g))
+    assert 'mock://example.com/theses/1' in items
+    assert 'mock://example.com/theses/2' in items
 
 
 def test_object_has_uri(thesis_1):

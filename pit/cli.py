@@ -8,7 +8,7 @@ from aioes import Elasticsearch
 import click
 
 from pit.es import Index
-from pit.index import Indexer
+from pit.index import Indexer, index_collection
 from pit.logging import BASE_CONFIG
 from pit.stomp import Protocol
 from pit.worker import work, cleanup
@@ -59,3 +59,23 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
         tasks = asyncio.Task.all_tasks()
         cleanup(tasks, loop, timeout=5)
         loop.close()
+
+
+@main.command()
+@click.argument('collection')
+@click.option('--index-host', default='localhost')
+@click.option('--index-port', default=9200)
+@click.option('--index-name', default='theses')
+def reindex(collection, index_host, index_port, index_name):
+    logger = logging.getLogger(__name__)
+    es_conn = '{}:{}'.format(index_host, index_port)
+    loop = asyncio.get_event_loop()
+    es = Elasticsearch([es_conn], loop=loop)
+    idx = Index(es, index_name)
+    loop.run_until_complete(idx.initialize())
+    fut = asyncio.ensure_future(idx.new_version())
+    loop.run_until_complete(fut)
+    new = fut.result()
+    loop.run_until_complete(index_collection(collection, idx))
+    loop.run_until_complete(idx.set_current(new))
+    logger.info('Finished indexing collection')

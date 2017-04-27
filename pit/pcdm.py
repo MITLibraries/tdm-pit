@@ -1,7 +1,7 @@
 import rdflib
 
 from pit import rewrite_host
-from pit.namespaces import EBU, PCDM, RDF
+from pit.namespaces import EBU, LDP, PCDM, RDF
 
 
 PREFER_HEADER = 'return=representation; include="http://fedora.info/' \
@@ -15,28 +15,9 @@ class PcdmBase:
                             object=self.type, any=False)
 
 
-class PcdmCollection(PcdmBase):
-    type = PCDM.Collection
-
-    def __init__(self, graph, client):
-        self.g = graph
-        self.client = client
-        self._members = self.g.objects(subject=None, predicate=PCDM.hasMember)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        try:
-            m = next(self._members)
-        except StopIteration:
-            raise StopAsyncIteration
-        url = rewrite_host(str(m))
-        res = await self.client.get(url, headers={'Prefer': PREFER_HEADER,
-                                                  'Accept': 'text/n3'})
-        data = await res.text()
-        graph = rdflib.Graph().parse(data=data, format='n3')
-        return PcdmObject(graph, self.client)
+def collection(graph):
+    for item in graph.objects(subject=None, predicate=LDP.contains):
+        yield str(item)
 
 
 class PcdmObject(PcdmBase):
@@ -69,4 +50,4 @@ class PcdmFile(PcdmBase):
 
     async def read(self):
         url = rewrite_host(str(self.uri))
-        return await self.client.request(url)
+        return await self.client.get(url)

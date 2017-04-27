@@ -1,5 +1,5 @@
-@prefix pcdm: <http://pcdm.org/models#> .
+@prefix ldp: <http://www.w3.org/ns/ldp#> .
 
-<mock://example.com/theses> a pcdm:Collection ;
-  pcdm:hasMember <mock://example.com/theses/1>,
-                 <mock://example.com/theses/2> .
+<mock://example.com/theses> a ldp:Container;
+  ldp:contains <mock://example.com/theses/1>,
+               <mock://example.com/theses/2> .
