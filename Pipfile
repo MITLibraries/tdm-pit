@@ -1,0 +1,15 @@
+[dev-packages]
+coveralls = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-asyncio = "*"
+
+[packages]
+aioes = "*"
+aiohttp = "*"
+click = "*"
+cryptography = "*"
+rdflib = "*"
+rdflib-jsonld = "*"
+stompest = "*"
+PyJWT = "*"
