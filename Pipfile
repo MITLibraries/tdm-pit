@@ -1,3 +1,10 @@
+[dev-packages]
+coveralls = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-asyncio = "*"
+bumpversion = "*"
+
 [packages]
 aioes = "*"
 aiohttp = "*"
@@ -7,9 +14,3 @@ rdflib = "*"
 rdflib-jsonld = "*"
 stompest = "*"
 PyJWT = "*"
-
-[dev-packages]
-coveralls = "*"
-pytest = "*"
-pytest-cov = "*"
-pytest-asyncio = "*"
