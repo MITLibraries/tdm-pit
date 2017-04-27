@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 import logging
 
 import aiohttp
@@ -5,7 +7,7 @@ import rdflib
 
 from pit import rewrite_host
 from pit.namespaces import BIBO, F4EV, MODS, MSL, PCDM, DCTERMS, RDF, RDA
-from pit.pcdm import PREFER_HEADER, PcdmObject
+from pit.pcdm import PREFER_HEADER, PcdmObject, collection
 
 
 def indexable(headers):
@@ -45,10 +47,34 @@ async def create_thesis(url, client=None):
     }
 
 
+async def index_collection(coll_url, index, client=None):
+    logger = logging.getLogger(__name__)
+    client = client or aiohttp.ClientSession()
+    ex = CoroExecutor(size=10)
+    idx = partial(index_thesis, index)
+    resp = await client.get(coll_url, headers={'Prefer': PREFER_HEADER,
+                                               'Accept': 'text/n3'})
+    data = await resp.text()
+    graph = rdflib.Graph().parse(data=data, format='n3')
+    fs = ex.map(idx, collection(graph))
+    for fut in asyncio.as_completed(fs):
+        try:
+            res = await fut
+            logger.info('Indexed {}'.format(res))
+        except Exception as e:
+            logger.warn(e)
+
+
+async def index_thesis(index, url):
+    thesis = await create_thesis(url)
+    await index.add(thesis)
+    return url
+
+
 class Indexer:
-    def __init__(self, index, loop):
+    def __init__(self, index, loop=None):
         self.index = index
-        self.loop = loop
+        self.loop = loop or asyncio.get_event_loop()
 
     async def on_message(self, frame):
         logger = logging.getLogger(__name__)
@@ -57,8 +83,7 @@ class Indexer:
                          .format(frame.headers['message-id']))
             uri = uri_from_message(frame.body)
             try:
-                thesis = await create_thesis(uri)
-                await self.index.add(thesis)
+                await index_thesis(self.index, uri)
                 logger.info('Indexed {}'.format(uri))
             except Exception as e:
                 logger.warn('Error while indexing document {}: {}'
@@ -123,3 +148,18 @@ class ThesisResource(object):
     def _get(self, prop):
         return list(map(str, self.resource.g.objects(subject=self.resource.uri,
                                                      predicate=prop)))
+
+
+class CoroExecutor:
+    def __init__(self, size=1):
+        self.semaphore = asyncio.BoundedSemaphore(value=size)
+
+    def submit(self, func, *args, **kwargs):
+        return asyncio.ensure_future(self._run(func, *args, **kwargs))
+
+    def map(self, func, iterable, timeout=None):
+        return [self.submit(func, arg) for arg in iterable]
+
+    async def _run(self, func, *args, **kwargs):
+        async with self.semaphore:
+            return await func(*args, **kwargs)
