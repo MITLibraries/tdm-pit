@@ -29,6 +29,11 @@ def main():
 @click.option('--queue', default='/queue/fedora')
 def run(broker_host, broker_port, index_host, index_port, repo_host,
         repo_port, queue):
+    """Start the indexing worker process.
+
+    This will start the worker process whose job it is to watch Fedora's
+    message queue for new items and add them to the Elasticsearch index.
+    """
     logger = logging.getLogger(__name__)
     es_conn = "{}:{}".format(index_host, index_port)
     loop = asyncio.get_event_loop()
@@ -67,6 +72,14 @@ def run(broker_host, broker_port, index_host, index_port, repo_host,
 @click.option('--index-port', default=9200)
 @click.option('--index-name', default='theses')
 def reindex(collection, index_host, index_port, index_name):
+    """Reindex the Fedora COLLECTION.
+
+    This will reindex the full theses collection in Fedora. COLLECTION
+    should be the URL to the theses collection. The theses index in
+    Elasticsearch is an alias. This script will create a new, versioned
+    index and when it is done it will point the alias to the new version
+    and remove the old version.
+    """
     logger = logging.getLogger(__name__)
     es_conn = '{}:{}'.format(index_host, index_port)
     loop = asyncio.get_event_loop()
