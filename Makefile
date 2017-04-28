@@ -12,6 +12,7 @@ coverage:
 
 release:
 	pipenv run bumpversion $(RELEASE_TYPE)
+	docker build -t gcr.io/mitlib-adit/pit:$(shell git describe --tag) .
 
 test:
 	pipenv run py.test tests --tb=short
