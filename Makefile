@@ -1,4 +1,5 @@
 .PHONY: init coverage release test update
+SHELL=/bin/bash
 
 RELEASE_TYPE=patch
 
@@ -12,7 +13,7 @@ coverage:
 
 release:
 	pipenv run bumpversion $(RELEASE_TYPE)
-	docker build -t gcr.io/mitlib-adit/pit:$(shell git describe --tag) .
+	docker build -t gcr.io/mitlib-adit/pit:`git describe --tag` .
 
 test:
 	pipenv run py.test tests --tb=short
